@@ -1,0 +1,27 @@
+Conrad Chen
+wchen283@wisc.edu
+conradc
+9071560800
+
+Yi Xian Soo
+ysoo@wisc.edu
+ysoo
+9073201122
+
+PART 1 SERVER
+Implement a server file and a client file such that the server allocate a memory and the clients can record the information of the processes. We use semaphore to allow only one client to 
+
+create a new process at a time. 
+
+PART 2 XV6 VM LAYOUT
+Changed exec.c to start allocating memory from 0x2000. Also allocated memory that starts from the top of the virtual address space for the new stack.
+
+Included an extra variable in the process structure to keep track of the top of the stack.
+
+In vm.c, changed copyuvm() to copy from the top of the stack. Also ensured the code and heap started from 0x2000 rather than 0. 
+
+Changed initcode to make sure that code starts loading from 0x2000 rather than 0x0 to ensure child process forks correctly. 
+
+Included a growstack function in proc.c to grow the stack when needed. Also implemented it in trap.c to call the function when encountering a pagefault.
+
+Ensured that arguments were properly called in syscall.c by ensuring that they were within the new bounds of the address space.
