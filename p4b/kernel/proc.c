@@ -96,7 +96,7 @@ userinit(void)
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
-
+//  p->numtrds = 1;
   p->state = RUNNABLE;
   release(&ptable.lock);
 }
@@ -159,6 +159,40 @@ fork(void)
   return pid;
 }
 
+// Crate new thread
+int
+clone(void(*fcn)(void*), void *arg)
+{
+  int i, pid;
+  struct proc *np;
+  int full = 1;
+  // Allocate process.
+  if((np = allocproc()) == 0)
+    return -1;
+
+  // Copy process state from p.
+  np->pgdir = proc->pgdir;
+  np->sz = proc->sz;
+  np->parent = proc;
+  np->tf = proc->tf;
+ 
+  for (int i = 0; i < 8; i++) {
+    if(np->usedtrd[i] != 0) {
+      np->usedtrd[i] = 1;
+      full = 0;
+      break;
+    }
+  }
+  if (full = 1) return -1;
+  /*
+  / make a new stack for the thread
+  */
+  np->cwd = idup(proc->cwd);
+  pid = np->pid;
+  np->state = RUNNABLE;
+  safestrcpy(np->name, proc->name, sizeof(proc->name));
+  return pid;
+}
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
