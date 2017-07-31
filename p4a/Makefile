@@ -14,7 +14,7 @@ LIBS = -lpthread
 
 all: server client output.cgi
 
-server: server_none
+server: server_cond
 	cp $< $@
 server_none: server.o request.o cs537.o server_none.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
