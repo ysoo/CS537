@@ -187,6 +187,38 @@ clone(void(*fcn)(void*), void *arg)
   /*
   / make a new stack for the thread
   */
+// uint ustack[3+MAXARG+1];
+// Allocate a one-page stack at the USERTOP
+//  if((sp = allocuvm(pgdir, USERTOP-PGSIZE, USERTOP)) == 0)
+//    goto bad;
+// Push argument strings, prepare rest of stack in ustack.
+//  for(argc = 0; argv[argc]; argc++) {
+//    if(argc >= MAXARG)
+//      goto bad;
+//    sp -= strlen(argv[argc]) + 1;
+//    sp &= ~3;
+//    if(copyout(pgdir, sp, argv[argc], strlen(argv[argc]) + 1) < 0)
+//      goto bad;
+//    ustack[3+argc] = sp;
+//  }
+//  ustack[3+argc] = 0;
+
+//  ustack[0] = 0xffffffff;  // fake return PC
+//  ustack[1] = argc;
+//  ustack[2] = sp - (argc+1)*4;  // argv pointer
+
+//  sp -= (3+argc+1) * 4;
+//  if(copyout(pgdir, sp, ustack, (3+argc+1)*4) < 0)
+//    goto bad;
+
+// Save program name for debugging.
+//  for(last=s=path; *s; s++)
+//    if(*s == '/')
+//      last = s+1;
+//  safestrcpy(proc->name, last, sizeof(proc->name));
+//  np->tf->esp = 0xffffffff;
+//  np->tf->ebp =
+  np->tf->eip = fcn; // the address of the worker func
   np->cwd = idup(proc->cwd);
   pid = np->pid;
   np->state = RUNNABLE;
