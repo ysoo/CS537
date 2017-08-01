@@ -178,11 +178,11 @@ clone(void(*fcn)(void*), void *arg)
   np->parent = proc;
   *np->tf = *proc->tf;
 
-  // Find a space in the array to allocate the new stack
+  // Find a space in the array to allocate the new stack and put in NEW THREAD'S PID
   int ok = 0;
-  for(j = 0; j < 8; j ++) {
+  for(j = 0; j < 9; j ++) {
     if(proc->threads[j] == 0 && ok == 0) {
-      proc->threads[j] = proc->pid;
+      proc->threads[j] = np->pid;
       ok = j;
     }
     // Copy the array into the new proc's array
@@ -196,13 +196,17 @@ clone(void(*fcn)(void*), void *arg)
 
   int temp = 2*ok+ 2;
   uint sp;
-  // Allocate a one-page stack at the USERTOP
-  if((sp = allocuvm(np->pgdir, USERTOP-(temp+1)*PGSIZE, USERTOP-temp*PGSIZE)) == 0)
+  // Allocate a one-page stack at the correct spot
+  if((sp = allocuvm(np->pgdir, USERTOP-(temp+1)*PGSIZE, USERTOP-temp*PGSIZE)) == 0) {
+    cprintf("CANT ALLOCUVM\n");
     return -1;
+  }
 
-  for(i = 0; i < NOFILE; i++)
+  for(i = 0; i < NOFILE; i++) {
+   // cprintf("Looping forever in file des\n");
     if(proc->ofile[i])
       np->ofile[i] = filedup(proc->ofile[i]);
+  }
   np->cwd = idup(proc->cwd);
 
   uint ustack[2];
@@ -215,12 +219,15 @@ clone(void(*fcn)(void*), void *arg)
     cprintf("CAN'T FUKING COPYOUT\n");
     return -1;
   }
+  np->tf->eax = 0;
   np->tf->esp = sp;
   np->tf->eip = (uint) fcn;
 
   pid = np->pid;
   np->state = RUNNABLE;
   safestrcpy(np->name, proc->name, sizeof(proc->name));
+//  cprintf("clone: ");
+//  for(j = 0; j < 9; j++) cprintf("trd[%d]:%d\n",j,proc->threads[j]);
   return pid;
 
 }
@@ -230,10 +237,19 @@ join(void)
 {
   struct proc *p;
   int havekids, pid;
+  cprintf("JOIN RAN \n");
+/*
+  havekids = 0;
+  for(int i = 0 ; i < 9; i++) {
+    if(proc->threads[i] != 0)
+      havekids = 1;
 
+  }
+*/
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for zombie children.
+//   if(havekids == 1) {
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->parent != proc || p->pgdir != proc->pgdir|| proc->pid == p->pid)
@@ -241,6 +257,18 @@ join(void)
       havekids = 1;
       if(p->state == ZOMBIE){
         // Found one.
+        int ok = 0;
+        for(int j = 0; j < 9; j++) {
+          if(proc->threads[j] == p->pid) {
+            p->threads[j] = 0;
+            proc->threads[j] = 0;
+     	    ok = 2*j + 2;
+      	    if((deallocuvm(proc->pgdir, USERTOP-(ok)*PGSIZE, USERTOP-(ok+1)*PGSIZE)) == 0) {
+               cprintf("DEALLOCUVM IN JOIN FAIL\n");             
+               return -1;
+            }
+         }
+        }
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
@@ -248,15 +276,21 @@ join(void)
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
- 	p->pgdir = 0;
-        p->killed = 0;
+ 	//p->pgdir = 0;
+        p->killed = 0; 
+        p->pgdir = 0;
+        // Deallocate the stack in parent's process
+//        cprintf("join: ");
+//        for(int j = 0; j < 9; j++) cprintf("trd[%d]:%d\n",j,proc->threads[j]);
         release(&ptable.lock);
         return pid;
       }
-    }
+     }
+  
 
     // No point waiting if we don't have any children.
     if(!havekids || proc->killed){
+      cprintf("DONT HAVE KIDS FAIL\n");  
       release(&ptable.lock);
       return -1;
     }

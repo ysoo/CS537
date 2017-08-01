@@ -104,3 +104,9 @@ sys_clone()
   }
   return clone(fcn, arg);
 }
+
+int
+sys_join()
+{
+  return join();
+}
