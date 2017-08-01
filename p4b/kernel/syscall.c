@@ -17,7 +17,7 @@ int
 isValid(struct proc* p, uint addr, uint n) {
   int valid = 
       ( (addr+n <= p->sz && addr >= USERBOT) ||
-        (addr+n <= USERTOP && addr+PGSIZE >= USERTOP) );
+        (addr+n <= USERTOP && addr+PGSIZE >= USERTOP) || addr == 0x0 );
   return valid;
 }
 
@@ -65,10 +65,15 @@ argptr(int n, char **pp, int size)
 {
   int i;
   
-  if(argint(n, &i) < 0)
+  if(argint(n, &i) < 0) {
+    cprintf("argint in argptr\n");
     return -1;
-  if (!isValid(proc, (uint) i, (uint) size))
+  }
+  if (!isValid(proc, (uint) i, (uint) size)) {
+    cprintf("uint is %x\n", i);
+    cprintf("is not valid \n");
     return -1;
+  }
   *pp = (char*)i;
   return 0;
 }
@@ -113,7 +118,6 @@ static int (*syscalls[])(void) = {
 [SYS_write]   sys_write,
 [SYS_uptime]  sys_uptime,
 [SYS_clone]   sys_clone,
-[SYS_join]    sys_join,
 };
 
 

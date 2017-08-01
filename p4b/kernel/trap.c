@@ -77,6 +77,9 @@ trap(struct trapframe *tf)
     break;
    
   default:
+    if(tf->trapno == 14) {
+      
+    }
     if(proc == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",

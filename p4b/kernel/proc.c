@@ -168,9 +168,10 @@ clone(void(*fcn)(void*), void *arg)
   struct proc *np;
 
   // Allocate process
-  if((np = allocproc()) == 0)
+  if((np = allocproc()) == 0) {
+    cprintf("can't alloc proc\n");
     return -1;
-
+  }
   // Copy process state from p
   np->pgdir = proc->pgdir;
   np->sz = proc->sz;
@@ -188,7 +189,10 @@ clone(void(*fcn)(void*), void *arg)
      np->threads[j] = proc->threads[j];
   }
 
-  if(ok == 0) return -1;
+  if(ok == 0) { 
+    cprintf("NOT OK\n");
+    return -1;
+  }
 
   int temp = 2*ok+ 2;
   uint sp;
@@ -196,28 +200,70 @@ clone(void(*fcn)(void*), void *arg)
   if((sp = allocuvm(np->pgdir, USERTOP-(temp+1)*PGSIZE, USERTOP-temp*PGSIZE)) == 0)
     return -1;
 
+  for(i = 0; i < NOFILE; i++)
+    if(proc->ofile[i])
+      np->ofile[i] = filedup(proc->ofile[i]);
+  np->cwd = idup(proc->cwd);
+
   uint ustack[2];
 
   ustack[0] = 0xffffffff;  // fake return PC
   ustack[1] = (uint)arg;
 
   sp -= 2*sizeof(uint);
-  if(copyout(np->pgdir, sp, ustack, 2*sizeof(uint)) < 0)
+  if(copyout(np->pgdir, sp, ustack, 2*sizeof(uint)) < 0) {
+    cprintf("CAN'T FUKING COPYOUT\n");
     return -1;
-
+  }
   np->tf->esp = sp;
   np->tf->eip = (uint) fcn;
-
-  for(i = 0; i < NOFILE; i++)
-    if(proc->ofile[i])
-      np->ofile[i] = filedup(proc->ofile[i]);
-  np->cwd = idup(proc->cwd);
 
   pid = np->pid;
   np->state = RUNNABLE;
   safestrcpy(np->name, proc->name, sizeof(proc->name));
   return pid;
 
+}
+
+int
+join(void)
+{
+  struct proc *p;
+  int havekids, pid;
+
+  acquire(&ptable.lock);
+  for(;;){
+    // Scan through table looking for zombie children.
+    havekids = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->parent != proc || p->pgdir != proc->pgdir|| proc->pid == p->pid)
+        continue;
+      havekids = 1;
+      if(p->state == ZOMBIE){
+        // Found one.
+        pid = p->pid;
+        kfree(p->kstack);
+        p->kstack = 0;
+        p->state = UNUSED;
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+ 	p->pgdir = 0;
+        p->killed = 0;
+        release(&ptable.lock);
+        return pid;
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || proc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(proc, &ptable.lock);  //DOC: wait-sleep
+  }
 }
 
 // Exit the current process.  Does not return.

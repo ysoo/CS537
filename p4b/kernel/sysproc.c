@@ -92,11 +92,15 @@ sys_uptime(void)
 int
 sys_clone()
 {
-  void (*fcn)(void *);
+  void *fcn;
   void *arg;
-  if(argptr(0, (char**)&fcn, sizeof(void*)) < 0)
+  if(argptr(0, (void*)&fcn, sizeof(void*)) < 0) {
+    cprintf("FCN in SYSPROC\n");
     return -1;
-  if(argptr(1, (char**)&arg, sizeof(void*)) < 0)
+  }
+  if(argptr(1, (void*)&arg, sizeof(void*)) < 0) {
+    cprintf("ARG in SYSPROC\n");
     return -1;
+  }
   return clone(fcn, arg);
 }
