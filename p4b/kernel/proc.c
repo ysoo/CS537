@@ -96,7 +96,7 @@ userinit(void)
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
-//  p->numtrds = 1;
+
   p->state = RUNNABLE;
   release(&ptable.lock);
 }
@@ -110,6 +110,8 @@ growproc(int n)
   
   sz = proc->sz;
   if(n > 0){
+    if(sz + n > USERTOP - 18*PGSIZE)
+      return -1;
     if((sz = allocuvm(proc->pgdir, sz, sz + n)) == 0)
       return -1;
   } else if(n < 0){
@@ -159,72 +161,65 @@ fork(void)
   return pid;
 }
 
-// Crate new thread
 int
 clone(void(*fcn)(void*), void *arg)
 {
-  int i, pid;
+  int i, pid, j;
   struct proc *np;
-  int full = 1;
-  // Allocate process.
+
+  // Allocate process
   if((np = allocproc()) == 0)
     return -1;
 
-  // Copy process state from p.
+  // Copy process state from p
   np->pgdir = proc->pgdir;
   np->sz = proc->sz;
   np->parent = proc;
-  np->tf = proc->tf;
- 
-  for (int i = 0; i < 8; i++) {
-    if(np->usedtrd[i] != 0) {
-      np->usedtrd[i] = 1;
-      full = 0;
-      break;
+  *np->tf = *proc->tf;
+
+  // Find a space in the array to allocate the new stack
+  int ok = 0;
+  for(j = 0; j < 8; j ++) {
+    if(proc->threads[j] == 0 && ok == 0) {
+      proc->threads[j] = proc->pid;
+      ok = j;
     }
+    // Copy the array into the new proc's array
+     np->threads[j] = proc->threads[j];
   }
-  if (full = 1) return -1;
-  /*
-  / make a new stack for the thread
-  */
-// uint ustack[3+MAXARG+1];
-// Allocate a one-page stack at the USERTOP
-//  if((sp = allocuvm(pgdir, USERTOP-PGSIZE, USERTOP)) == 0)
-//    goto bad;
-// Push argument strings, prepare rest of stack in ustack.
-//  for(argc = 0; argv[argc]; argc++) {
-//    if(argc >= MAXARG)
-//      goto bad;
-//    sp -= strlen(argv[argc]) + 1;
-//    sp &= ~3;
-//    if(copyout(pgdir, sp, argv[argc], strlen(argv[argc]) + 1) < 0)
-//      goto bad;
-//    ustack[3+argc] = sp;
-//  }
-//  ustack[3+argc] = 0;
 
-//  ustack[0] = 0xffffffff;  // fake return PC
-//  ustack[1] = argc;
-//  ustack[2] = sp - (argc+1)*4;  // argv pointer
+  if(ok == 0) return -1;
 
-//  sp -= (3+argc+1) * 4;
-//  if(copyout(pgdir, sp, ustack, (3+argc+1)*4) < 0)
-//    goto bad;
+  int temp = 2*ok+ 2;
+  uint sp;
+  // Allocate a one-page stack at the USERTOP
+  if((sp = allocuvm(np->pgdir, USERTOP-(temp+1)*PGSIZE, USERTOP-temp*PGSIZE)) == 0)
+    return -1;
 
-// Save program name for debugging.
-//  for(last=s=path; *s; s++)
-//    if(*s == '/')
-//      last = s+1;
-//  safestrcpy(proc->name, last, sizeof(proc->name));
-//  np->tf->esp = 0xffffffff;
-//  np->tf->ebp =
-  np->tf->eip = fcn; // the address of the worker func
+  uint ustack[2];
+
+  ustack[0] = 0xffffffff;  // fake return PC
+  ustack[1] = (uint)arg;
+
+  sp -= 2*sizeof(uint);
+  if(copyout(np->pgdir, sp, ustack, 2*sizeof(uint)) < 0)
+    return -1;
+
+  np->tf->esp = sp;
+  np->tf->eip = (uint) fcn;
+
+  for(i = 0; i < NOFILE; i++)
+    if(proc->ofile[i])
+      np->ofile[i] = filedup(proc->ofile[i]);
   np->cwd = idup(proc->cwd);
+
   pid = np->pid;
   np->state = RUNNABLE;
   safestrcpy(np->name, proc->name, sizeof(proc->name));
   return pid;
+
 }
+
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.

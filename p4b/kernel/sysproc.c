@@ -89,14 +89,14 @@ sys_uptime(void)
   return xticks;
 }
 
-// clone a new thread
-int sys_clone(void)
+int
+sys_clone()
 {
-  return 0;
-}
-
-// wait for the new thread
-int sys_join(void)
-{
- return 0;
+  void (*fcn)(void *);
+  void *arg;
+  if(argptr(0, (char**)&fcn, sizeof(void*)) < 0)
+    return -1;
+  if(argptr(1, (char**)&arg, sizeof(void*)) < 0)
+    return -1;
+  return clone(fcn, arg);
 }
