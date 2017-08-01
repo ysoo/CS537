@@ -3,6 +3,7 @@
 USER_PROGS := \
 	cat\
 	clone\
+	clone3\
 	echo\
 	forktest\
 	grep\
