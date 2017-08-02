@@ -2,7 +2,13 @@
 #define _USER_H_
 
 struct stat;
+typedef struct {
+  uint flag;
+} lock_t;
 
+typedef struct {
+  lock_t *lock;
+} cond_t;
 // system calls
 int fork(void);
 int exit(void) __attribute__((noreturn));
@@ -41,6 +47,11 @@ void* memset(void*, int, uint);
 void* malloc(uint);
 void free(void*);
 int atoi(const char*);
-
+void lock_init(lock_t*);
+void lock_acquire(lock_t*);
+void lock_release(lock_t*);
+void cond_init(cond_t *);
+void cond_wait(cond_t *, lock_t *);
+void cond_signal(cond_t *);
 #endif // _USER_H_
 

@@ -3,7 +3,12 @@
 USER_PROGS := \
 	cat\
 	clone\
+        clone2\
 	clone3\
+        join\
+        join3\
+        badaddr2\
+        locks\
 	echo\
 	forktest\
 	grep\

@@ -103,3 +103,34 @@ memmove(void *vdst, void *vsrc, int n)
     *dst++ = *src++;
   return vdst;
 }
+
+void
+lock_init(lock_t *lock)
+{
+  lock->flag = 0;
+}
+
+void
+lock_acquire(lock_t *lock)
+{
+  while(xchg(&lock->flag,1)==1);
+}
+
+void
+lock_release(lock_t *lock)
+{
+  xchg(&lock->flag,0);
+}
+void
+cond_init(cond_t * cv)
+{
+}
+void
+cond_wait(cond_t *cv, lock_t *lock)
+{
+//  sleep(void *chan, struct spinlock *lk);
+}
+void
+cond_signal(cond_t *cv)
+{
+}
