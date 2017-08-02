@@ -124,13 +124,44 @@ lock_release(lock_t *lock)
 void
 cond_init(cond_t * cv)
 {
+
 }
 void
 cond_wait(cond_t *cv, lock_t *lock)
-{
-//  sleep(void *chan, struct spinlock *lk);
+{ 
+  tsleep(cv, lock);
+  return;
 }
 void
 cond_signal(cond_t *cv)
 {
+  twake(cv);
+  return;
+}
+
+void
+sem_init(sem_t *sem, int init)
+{
+  sem->value = init;
+  lock_init(&sem->lock);
+  cond_init(&sem->cv);
+}
+
+void
+sem_wait(sem_t * sem)
+{
+  lock_acquire(&sem->lock);
+  sem->value --;
+  if(sem->value < 0)
+   tsleep(&sem->cv, &sem->lock);
+  lock_release(&sem->lock);
+}
+
+void
+sem_post(sem_t * sem)
+{
+  lock_acquire(&sem->lock);
+  sem->value ++;
+  twake(&sem->cv);
+  lock_release(&sem->lock);
 }
