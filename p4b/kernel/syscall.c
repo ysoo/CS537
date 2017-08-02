@@ -15,9 +15,19 @@
 
 int
 isValid(struct proc* p, uint addr, uint n) {
+  int ok = 0;
+  for(int i = 0; i < 9; i++) {
+    if(p->threads[i] == p->pid) {
+      ok = i;
+ //     cprintf("OK %d", ok);
+    }
+  }
+  int temp = 2*ok + 2; 
+
   int valid = 
       ( (addr+n <= p->sz && addr >= USERBOT) ||
-        (addr+n <= USERTOP && addr+PGSIZE >= USERTOP) || addr == 0x0 );
+        (addr+n <= USERTOP && addr+PGSIZE >= USERTOP)||
+        (addr+n <= USERTOP - temp*PGSIZE && addr+(temp+1)*PGSIZE >= USERTOP) );
   return valid;
 }
 
@@ -69,7 +79,7 @@ argptr(int n, char **pp, int size)
     cprintf("argint in argptr\n");
     return -1;
   }
-  if (!isValid(proc, (uint) i, (uint) size)) {
+  if (i!=0 &&!isValid(proc, (uint) i, (uint) size)) {
     cprintf("uint is %x\n", i);
     cprintf("is not valid \n");
     return -1;

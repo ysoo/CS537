@@ -243,7 +243,6 @@ join(void)
   for(int i = 0 ; i < 9; i++) {
     if(proc->threads[i] != 0)
       havekids = 1;
-
   }
 */
   acquire(&ptable.lock);
@@ -356,7 +355,7 @@ wait(void)
     // Scan through table looking for zombie children.
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != proc)
+      if(p->parent != proc||p->pgdir == proc->pgdir)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
@@ -583,5 +582,3 @@ procdump(void)
     cprintf("\n");
   }
 }
-
-
