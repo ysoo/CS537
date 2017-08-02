@@ -120,16 +120,6 @@ growproc(int n)
   }
   proc->sz = sz;
   switchuvm(proc);
-
-  struct proc *p;
-  pde_t *temp = proc->pgdir;
-  acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-    if(p->pgdir == temp) {
-       p->sz =sz; 
-     }
-  } 
-  release(&ptable.lock);
   return 0;
 }
 
@@ -218,13 +208,20 @@ clone(void(*fcn)(void*), void *arg)
       np->ofile[i] = filedup(proc->ofile[i]);
   }
   np->cwd = idup(proc->cwd);
+/*
+  uint *stackarg, *stackret;
 
+  stackarg = (uint *)(sp - sizeof(void*));
+  stackret = (uint *)(sp - 2*sizeof(void*));
+  *stackret = 0xffffffff;
+  *stackarg = (uint)arg;
+*/
   uint ustack[2];
 
   ustack[0] = 0xffffffff;  // fake return PC
   ustack[1] = (uint)arg;
 
-  sp -= 2*sizeof(uint);
+  sp -= 2*sizeof(void *);
   if(copyout(np->pgdir, sp, ustack, 2*sizeof(uint)) < 0) {
     cprintf("CAN'T FUKING COPYOUT\n");
     return -1;
@@ -247,12 +244,13 @@ join(void)
 {
   struct proc *p;
   int havekids, pid;
-  //cprintf("JOIN RAN \n");
+  cprintf("JOIN RAN \n");
 /*
   havekids = 0;
   for(int i = 0 ; i < 9; i++) {
     if(proc->threads[i] != 0)
       havekids = 1;
+
   }
 */
   acquire(&ptable.lock);
@@ -365,7 +363,7 @@ wait(void)
     // Scan through table looking for zombie children.
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != proc||p->pgdir == proc->pgdir)
+      if(p->parent != proc)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
@@ -476,29 +474,6 @@ forkret(void)
   // Return to "caller", actually trapret (see allocproc).
 }
 
-void
-tsleep(void *chan, lock_t *lock)
-{
- if(proc == 0)
-    panic("sleep");
-
- if(lock == 0)
-    panic("sleep without lk");
-
-  acquire(&ptable.lock);  //DOC: sleeplock1
-
-  // Go to sleep.
-  proc->chan = chan;
-  proc->state = SLEEPING;
-  xchg(&lock->flag,0);
-  sched();
- 
-  proc->chan = 0;
-
-  release(&ptable.lock);
-  while(xchg(&lock->flag,1)==1);
-}
-
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
 void
@@ -536,20 +511,6 @@ sleep(void *chan, struct spinlock *lk)
   }
 }
 
-void
-twake(void *chan)
-{
-  struct proc *p;
-  acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-      if(p->state == SLEEPING && p->chan == chan) {
-        p->state = RUNNABLE;
-        break;
-	}
-   }
-  release(&ptable.lock);
-
-}
 // Wake up all processes sleeping on chan.
 // The ptable lock must be held.
 static void
@@ -629,3 +590,5 @@ procdump(void)
     cprintf("\n");
   }
 }
+
+

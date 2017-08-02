@@ -10,6 +10,10 @@ struct proc;
 struct spinlock;
 struct stat;
 
+typedef struct {
+  uint flag;
+} lock_t;
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -106,6 +110,8 @@ void            pinit(void);
 void            procdump(void);
 void            scheduler(void) __attribute__((noreturn));
 void            sched(void);
+void		tsleep(void*, lock_t*);
+void		twake(void*);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
 int             wait(void);

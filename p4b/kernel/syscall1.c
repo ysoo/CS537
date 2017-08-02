@@ -15,7 +15,7 @@
 
 int
 isValid(struct proc* p, uint addr, uint n) {
-  int ok = 0;
+ int ok = 0;
   for(int i = 0; i < 9; i++) {
     if(p->threads[i] == p->pid) {
       ok = i;
@@ -52,11 +52,37 @@ fetchstr(struct proc *p, uint addr, char **pp)
   if (!isValid(p, addr, sizeof(char)))
     return -1;
   *pp = (char*)addr;
-  if (addr >= USERTOP - PGSIZE) ep = (char*)USERTOP;
-  else ep = (char*)p->sz;
-  for(s = *pp; s < ep; s++)
+
+  int ok = 0;
+  for(int i = 0; i < 9; i++) {
+    if(p->threads[i] == p->pid) {
+      ok = i;
+      cprintf("OK %d", ok);
+    }
+  }
+  // cprintf("ADDR IN FETCHSTR %x\n", addr);
+  if (addr < p->sz && addr >= 2*PGSIZE) {
+    ep = (char*)p->sz;
+  } else if (addr >= USERTOP - PGSIZE) {
+    ep = (char*)USERTOP;
+  } else {
+    int temp = 2*ok + 2; 
+    ep = (char *) USERTOP - temp*PGSIZE;
+  }
+
+/*
+  if (addr >= USERTOP - PGSIZE) { // STACK NUMERO UNO
+    cprintf("ADDR IN FETCHSTR %x\n", addr);
+    ep = (char*)USERTOP;
+  } else {	// HEAP 
+    ep = (char*)p->sz;
+  }
+*/
+  for(s = *pp; s < ep; s++) {
+   // cprintf("IN FOR LOOP\n");
     if(*s == 0)
       return s - *pp;
+  }
   return -1;
 }
 
@@ -79,9 +105,9 @@ argptr(int n, char **pp, int size)
     cprintf("argint in argptr\n");
     return -1;
   }
-  if (i!=0 &&!isValid(proc, (uint) i, (uint) size)) {
-    cprintf("uint is %x\n", i);
-    cprintf("is not valid \n");
+  if (i!=0 && !isValid(proc, (uint) i, (uint) size)) {
+ //   cprintf("uint is %x\n", i);
+ //   cprintf("is not valid \n");
     return -1;
   }
   *pp = (char*)i;
@@ -129,8 +155,6 @@ static int (*syscalls[])(void) = {
 [SYS_uptime]  sys_uptime,
 [SYS_clone]   sys_clone,
 [SYS_join]    sys_join,
-[SYS_tsleep]  sys_tsleep,
-[SYS_twake]   sys_twake,
 };
 
 

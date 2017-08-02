@@ -90,49 +90,33 @@ sys_uptime(void)
 }
 
 int
-sys_clone(void)
+sys_clone()
 {
   void *fcn;
-  void *arg;
+//  void *arg;
+//  uint fcn;
+  uint arg;
   if(argptr(0, (void*)&fcn, sizeof(void*)) < 0) {
     cprintf("FCN in SYSPROC\n");
     return -1;
   }
-  if(argptr(1, (void*)&arg, sizeof(void*)) < 0) {
+/*  if(argptr(1, (void*)&arg, sizeof(void*)) < 0) {
+    cprintf("ARG in SYSPROC\n");
+    return -1;
+  }*/
+/*  if(argint(0, (void*)&fcn) < 0) {
+    cprintf("FCN in SYSPROC\n");
+    return -1;
+  }*/
+  if(argint(1, (void*)&arg) < 0) {
     cprintf("ARG in SYSPROC\n");
     return -1;
   }
-  return clone(fcn, arg);
+  return clone(fcn, (void*)&arg);
 }
 
 int
-sys_join(void)
+sys_join()
 {
   return join();
-}
-
-int
-sys_tsleep(void)
-{
-  void *cv, *templock;
-  if(argptr(0, (void *) &cv, sizeof(void *)) < 0)
-    return -1;
-
-  if(argptr(1, (void *)&templock, sizeof(void *)) < 0)
-    return -1;
-  lock_t *lock = (lock_t *)templock;
-  tsleep(cv, lock);
-  return 0;
-}
-
-int
-sys_twake(void)
-{
-  void *cv;
-
-  if(argptr(0, (void *) &cv, sizeof(void *)) < 0)
-    return -1;
-
-  twake(cv);
-  return 0;
 }
