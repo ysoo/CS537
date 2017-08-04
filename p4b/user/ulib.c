@@ -124,7 +124,7 @@ lock_release(lock_t *lock)
 void
 cond_init(cond_t * cv)
 {
-
+   cv->lock = 0;
 }
 void
 cond_wait(cond_t *cv, lock_t *lock)
