@@ -7,7 +7,8 @@ typedef struct {
 } lock_t;
 
 typedef struct {
-  lock_t lock;
+//  lock_t lock;
+  uint lock;
 } cond_t;
 
 typedef struct {
