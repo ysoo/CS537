@@ -200,18 +200,19 @@ clone(void(*fcn)(void*), void *arg)
   }
 
   if(ok == 0) { 
-    cprintf("NOT OK\n");
+    cprintf("More than 8 threads\n");
     return -1;
   }
 
-  int temp = 2*ok+ 2;
+//  int temp = 2*ok+ 2;
+  int temp = 2*ok;
   uint sp;
   // Allocate a one-page stack at the correct spot
   if((sp = allocuvm(np->pgdir, USERTOP-(temp+1)*PGSIZE, USERTOP-temp*PGSIZE)) == 0) {
-    cprintf("CANT ALLOCUVM\n");
+    cprintf("Cannot allocuvm\n");
     return -1;
   }
-
+//  cprintf("sp = %x\n",sp);
   for(i = 0; i < NOFILE; i++) {
    // cprintf("Looping forever in file des\n");
     if(proc->ofile[i])
@@ -226,7 +227,7 @@ clone(void(*fcn)(void*), void *arg)
 
   sp -= 2*sizeof(uint);
   if(copyout(np->pgdir, sp, ustack, 2*sizeof(uint)) < 0) {
-    cprintf("CAN'T FUKING COPYOUT\n");
+    cprintf("Cannot copyout\n");
     return -1;
   }
   np->tf->eax = 0;
@@ -248,13 +249,7 @@ join(void)
   struct proc *p;
   int havekids, pid;
   //cprintf("JOIN RAN \n");
-/*
-  havekids = 0;
-  for(int i = 0 ; i < 9; i++) {
-    if(proc->threads[i] != 0)
-      havekids = 1;
-  }
-*/
+
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for zombie children.
@@ -267,13 +262,14 @@ join(void)
       if(p->state == ZOMBIE){
         // Found one.
         int ok = 0;
-        for(int j = 0; j < 9; j++) {
+        for(int j = 1; j < 9; j++) {
           if(proc->threads[j] == p->pid) {
             p->threads[j] = 0;
             proc->threads[j] = 0;
-     	    ok = 2*j + 2;
+     	    //ok = 2*j + 2;
+            ok = 2*j;
       	    if((deallocuvm(proc->pgdir, USERTOP-(ok)*PGSIZE, USERTOP-(ok+1)*PGSIZE)) == 0) {
-               cprintf("DEALLOCUVM IN JOIN FAIL\n");             
+               cprintf("Deallocuvm in join failed\n");             
                return -1;
             }
          }
@@ -295,11 +291,9 @@ join(void)
         return pid;
       }
      }
-  
-
     // No point waiting if we don't have any children.
     if(!havekids || proc->killed){
-      cprintf("DONT HAVE KIDS FAIL\n");  
+      cprintf("Dont have kids\n");  
       release(&ptable.lock);
       return -1;
     }
@@ -490,7 +484,8 @@ tsleep(void *chan, lock_t *lock)
   // Go to sleep.
   proc->chan = chan;
   proc->state = SLEEPING;
-  xchg(&lock->flag,0);
+//  xchg(&lock->flag,0);
+  lock->flag = 0;
   sched();
  
   proc->chan = 0;
