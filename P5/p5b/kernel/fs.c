@@ -456,7 +456,10 @@ writei(struct inode *ip, char *src, uint off, uint n)
       n = tot; //return number of bytes written so far
       break;
     }
-    
+    if(ip->type == T_SMART){
+      uint bn = off/BSIZE;
+      //like in bmap, if bn <= 13 return sector num, else rearrange 
+    } 
     bp = bread(ip->dev, sector_number);
     m = min(n - tot, BSIZE - off%BSIZE);
     memmove(bp->data + off%BSIZE, src, m);
