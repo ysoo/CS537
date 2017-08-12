@@ -1,4 +1,4 @@
-// File system implementation.  Four layers:
+// File system implementation.  Four layers:i
 //   + Blocks: allocator for raw disk blocks.
 //   + Files: inode allocator, reading, writing, metadata.
 //   + Directories: inode with special contents (list of other inodes!)
@@ -98,8 +98,10 @@ bfree(int dev, uint b)
   bp = bread(dev, BBLOCK(b, sb.ninodes));
   bi = b % BPB;
   m = 1 << (bi % 8);
-  if((bp->data[bi/8] & m) == 0)
+  if((bp->data[bi/8] & m) == 0 ) {
+    cprintf("HERE IN BFREE \n");
     panic("freeing free block");
+  }
   bp->data[bi/8] &= ~m;  // Mark block free on disk.
   bwrite(bp);
   brelse(bp);
@@ -331,13 +333,16 @@ bmap(struct inode *ip, uint bn)
   uint addr, *a;
   struct buf *bp;
   if(ip->type == T_SMART){
-    if(bn < NDIRECT +1){ //for T_SMART, if 0 <= bn <= 12(bn<13), 0-12 are direct
+
+    if(bn < NDIRECT +1) { //for T_SMART, if 0 <= bn <= 12(bn<13), 0-12 are direct
       if((addr = ip->addrs[bn]) == 0)
         ip->addrs[bn] = addr = balloc(ip->dev);
       return addr;
     }
+
     bn -= NDIRECT;
-    if(bn < NINDIRECT){//bn - NDIRECT < NINDIRECT, start indirect from 12
+
+    if(bn < NINDIRECT) {//bn - NDIRECT < NINDIRECT, start indirect from 12
       // Load indirect block, allocating if necessary.
       ip->type = T_FILE; //set back to normal T_FILE
       uint last = ip->addrs[NDIRECT];
@@ -351,9 +356,8 @@ bmap(struct inode *ip, uint bn)
       // at somewhere make the first address of the new block to be original 12th's address
       brelse(bp);
       return addr;
-    }
-  }
-  else {
+     }
+  } else {
     if(bn < NDIRECT){
       if((addr = ip->addrs[bn]) == 0)
         ip->addrs[bn] = addr = balloc(ip->dev);
@@ -387,24 +391,34 @@ itrunc(struct inode *ip)
   int i, j;
   struct buf *bp;
   uint *a;
-
-  for(i = 0; i < NDIRECT; i++){
-    if(ip->addrs[i]){
-      bfree(ip->dev, ip->addrs[i]);
-      ip->addrs[i] = 0;
+  if(ip->type == T_SMART) {
+    for(i = 0; i < NDIRECT; i++) {
+      if(ip->addrs[i]) {
+        bfree(ip->dev, ip->addrs[i]);
+        ip->addrs[i] = 0;
+      }
     }
-  }
-  
-  if(ip->addrs[NDIRECT]){
-    bp = bread(ip->dev, ip->addrs[NDIRECT]);
-    a = (uint*)bp->data;
-    for(j = 0; j < NINDIRECT; j++){
-      if(a[j])
-        bfree(ip->dev, a[j]);
-    }
-    brelse(bp);
     bfree(ip->dev, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
+  } else {
+    for(i = 0; i < NDIRECT; i++){
+      if(ip->addrs[i]){
+        bfree(ip->dev, ip->addrs[i]);
+        ip->addrs[i] = 0;
+      }
+    }
+  
+    if(ip->addrs[NDIRECT]){
+      bp = bread(ip->dev, ip->addrs[NDIRECT]);
+      a = (uint*)bp->data;
+      for(j = 0; j < NINDIRECT; j++){
+        if(a[j])
+          bfree(ip->dev, a[j]);
+      }
+      brelse(bp);
+      bfree(ip->dev, ip->addrs[NDIRECT]);
+      ip->addrs[NDIRECT] = 0;
+    }
   }
 
   ip->size = 0;
@@ -470,7 +484,6 @@ writei(struct inode *ip, char *src, uint off, uint n)
 
   if(off > ip->size || off + n < off)
     return -1;
-//  if(ip->type == T_SMART && off + n > MAXFILE*BSIZE);//////////////////////
   if(off + n > MAXFILE*BSIZE)
     n = MAXFILE*BSIZE - off;
 
