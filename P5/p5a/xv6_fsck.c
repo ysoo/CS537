@@ -31,11 +31,11 @@ int main(int argc, char *argv[]){
       bitmap[i]=*(uchar*)(imgptr+BSIZE*(ninodes)/8+4+i);
   }
   uint data_bound=nbitmap+ninodes+3;
+  //  printf("%d\n",dip[1].type);
   for(int i=0;i<(int)sb->ninodes;i++){
-    //TODO:
-    // Each inode is either unallocated or one
-    // of the valid types (T_FILE, T_DIR, T_DEV). ERROR: bad inode.
-      printf("%d\n",dip[i].type);
+
+
+    //  printf("%d\n",dip[i].type);
     if(!(dip[i].type == 0 ||dip[i].type == 1 || dip[i].type == 2 || dip[i].type == 3)){
       perror("ERROR: bad inode.\n");
       exit(1);
@@ -47,21 +47,16 @@ int main(int argc, char *argv[]){
             perror("ERROR: root directory does not exist.\n");
             exit(1);
         }
-
-
         //TODO:
         //For in-use inodes, each address that is used by inode is valid (points to a valid datablock address within the image).
         //If the direct block is used and is invalid, print ERROR: bad direct address in inode.
         for(int j=0;j<NDIRECT;j++){
             if(dip[i].addrs[j]==0){
-            }
-            else if(dip[i].addrs[j]>size||dip[i].addrs[j]<data_bound) {
+            } else if(dip[i].addrs[j]>size||dip[i].addrs[j]<data_bound) {
                 //larger than size or smaller than the area of non-data blks
                 perror("ERROR: bad direct address in inode.\n");
                 exit(1);
-            }
-
-            else if(dip[i].type == 2){
+            } else if(dip[i].type == 2) {
                 //TODO:
                 //For in-use inodes, direct address in use is only used once. ERROR: direct address used more than once.
 
