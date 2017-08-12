@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "fs.h"
 #include "types.h"
 #include <sys/mman.h>
@@ -7,23 +8,25 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+
 int main(int argc, char *argv[]){
   struct stat buf;
-  int fd=open("fs.img",O_RDWR);
-  FILE* image = fopen(argv[1], "rb");
-    if(fd == -1||image == NULL) {
+  int fd=open(argv[1],O_RDONLY);
+//  FILE* image = fopen(argv[1], "rb");
+    if(fd == -1) {
         fprintf(stderr,"image not found.\n");
         exit(1);
     }
   fstat(fd,&buf);
   void *imgptr = (void*)mmap(NULL, buf.st_size, PROT_READ,MAP_PRIVATE,fd,0);
   struct superblock *sb =(struct superblock*)(imgptr+BSIZE);
-  struct dinode *dip = (struct dinode*)(imgptr+BSIZE*2);
 
+  struct dinode *dip = (struct dinode*)(imgptr+BSIZE*2);
+    uchar buffer[BSIZE];
 //  int const ninodes = (int)sb->ninodes;
   int const nblks = (int)sb->nblocks;
   int const size = (int)sb->size;
-//  uchar *bitmap = (uchar*)(imgptr+BSIZE*(ninodes)/8+4);
+//  uchar *bitmap = (uchar*)(imgptr+BSIZE*28);
   uint ninodes = (sb->ninodes + IPB - 1) / IPB;
   uint nbitmap = (sb->size + BPB - 1) / BPB;
   uchar bitmap[nbitmap*BSIZE];
@@ -31,10 +34,79 @@ int main(int argc, char *argv[]){
       bitmap[i]=*(uchar*)(imgptr+BSIZE*(ninodes)/8+4+i);
   }
   uint data_bound=nbitmap+ninodes+3;
-  //  printf("%d\n",dip[1].type);
-  for(int i=0;i<(int)sb->ninodes;i++){
+  //  printf("%d\n",size/BSIZE);
+
+\
+    for(int i=0;i<(int)sb->ninodes;i++) {
+        //  printf("%d\n",dip[i].type);
+        if (!(dip[i].type == 0 || dip[i].type == 1 || dip[i].type == 2 || dip[i].type == 3)) {
+            fprintf(stderr,"ERROR: bad inode.\n");
+            exit(1);
+        }
+    }
+
+    //TODO:
+    //Root directory exists, and it is inode number 1. ERROR: root directory does not exist.
+    //check the first dirent of first inode, inum == 1, and  if the name is "."
+    uint addr = dip[1].addrs[0];
+    struct dirent* dirs = (struct dirent*)(imgptr+BSIZE*addr);
+    //printf("addr:%d %s %s\n",addr,dirs[0].name,dirs[1].name);
+    if(dip[1].type != 1){
+        fprintf(stderr,"ERROR: root directory does not exist.\n");
+        exit(1);
+    }
+    if(!(strcmp(dirs[0].name,".")==0 && dirs[0].inum==1
+       &&strcmp(dirs[1].name,"..")==0&& dirs[1].inum==1)) {
+        fprintf(stderr,"ERROR: root directory does not exist.\n");
+        exit(1);
+    }
+
+    for(int i=0;i<(int)sb->ninodes;i++) {
+        //TODO:
+        //If the direct block is used and is invalid, print ERROR: bad direct address in inode.
+        for(int j=0;j<NDIRECT;j++) {
+            if (dip[i].addrs[j] == 0) {
+            } else if (dip[i].addrs[j] > size || dip[i].addrs[j] < data_bound) {
+                //larger than size or smaller than the area of non-data blks
+                fprintf(stderr,"ERROR: bad direct address in inode.\n");
+                exit(1);
+            }
+        }
+        //TODO:
+        // if the indirect block is in use and is invalid,print ERROR: bad indirect address in inode.
+        if(dip[i].addrs[NINDIRECT]==0){
+        } else if(dip[i].addrs[NINDIRECT]>size||dip[i].addrs[NINDIRECT]<data_bound) {
+            //larger than size or smaller than the area of non-data blks
+            perror("ERROR: bad indirect address in inode.\n");
+            exit(1);
+        }
+   }
 
 
+    int usage[1024];
+    for(int i=0;i<(int)sb->ninodes;i++) usage[i]=0;
+    for(int i=0;i<(int)sb->ninodes;i++){
+        for(int j=0;j<NDIRECT;j++){
+            addr =dip[i].addrs[j];
+            if(addr==0){
+            } else {
+                //printf("%d\n",usage[dip[i].addrs[j]]);
+                if(usage[addr]==0){
+                    usage[addr]=1;
+                }
+                else{
+                    //fprintf(stderr,"ERROR: bad direct address in inode.\n");
+                    //exit(1);
+                }
+            }
+        }
+        if(dip[i].addrs[NDIRECT]==0){
+        } else{
+            //int* indir=(dip[i].addrs[NDIRECT]);
+        }
+    }
+
+  /*for(int i=0;i<(int)sb->ninodes;i++){
     //  printf("%d\n",dip[i].type);
     if(!(dip[i].type == 0 ||dip[i].type == 1 || dip[i].type == 2 || dip[i].type == 3)){
       perror("ERROR: bad inode.\n");
@@ -63,8 +135,7 @@ int main(int argc, char *argv[]){
 
             }
         }
-        //TODO:
-        // if the indirect block is in use and is invalid,print ERROR: bad indirect address in inode.
+
         if(dip[i].addrs[NINDIRECT]==0){
         } else if(dip[i].addrs[NINDIRECT]>size||dip[i].addrs[NINDIRECT]<data_bound) {
             //larger than size or smaller than the area of non-data blks
@@ -76,15 +147,8 @@ int main(int argc, char *argv[]){
 
 
 
-  }
+  }*/
 
-
-
-
-
-  //TODO:
-  //Each directory contains . and .. entries. ERROR: directory not properly formatted.
-  //all inodes, first two dirent are "." and ".."
 
   //TODO:
   //Each .. entry in directory refers to the proper parent inode, and parent inode points back to it. ERROR: parent directory mismatch.
