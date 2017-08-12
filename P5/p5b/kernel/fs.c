@@ -330,28 +330,51 @@ bmap(struct inode *ip, uint bn)
 {
   uint addr, *a;
   struct buf *bp;
-
-  if(bn < NDIRECT){
-    if((addr = ip->addrs[bn]) == 0)
-      ip->addrs[bn] = addr = balloc(ip->dev);
-    return addr;
-  }
-  bn -= NDIRECT;
-
-  if(bn < NINDIRECT){
-    // Load indirect block, allocating if necessary.
-    if((addr = ip->addrs[NDIRECT]) == 0)
-      ip->addrs[NDIRECT] = addr = balloc(ip->dev);
-    bp = bread(ip->dev, addr);
-    a = (uint*)bp->data;
-    if((addr = a[bn]) == 0){
-      a[bn] = addr = balloc(ip->dev);
-      bwrite(bp);
+  if(ip->type == T_SMART){
+    if(bn < NDIRECT +1){ //for T_SMART, if 0 <= bn <= 12(bn<13), 0-12 are direct
+      if((addr = ip->addrs[bn]) == 0)
+        ip->addrs[bn] = addr = balloc(ip->dev);
+      return addr;
     }
-    brelse(bp);
-    return addr;
+    bn -= NDIRECT;
+    if(bn < NINDIRECT){//bn - NDIRECT < NINDIRECT, start indirect from 12
+      // Load indirect block, allocating if necessary.
+      ip->type = T_FILE; //set back to normal T_FILE
+      uint last = ip->addrs[NDIRECT];
+//      if((addr = ip->addrs[NDIRECT]) == 0)
+      ip->addrs[NDIRECT] = addr = balloc(ip->dev);//allocate a new block
+      bp = bread(ip->dev, addr);
+      a = (uint*)bp->data;
+      a[bn] = addr = balloc(ip->dev);
+      a[0]=last;
+      bwrite(bp);
+      // at somewhere make the first address of the new block to be original 12th's address
+      brelse(bp);
+      return addr;
+    }
   }
+  else {
+    if(bn < NDIRECT){
+      if((addr = ip->addrs[bn]) == 0)
+        ip->addrs[bn] = addr = balloc(ip->dev);
+      return addr;
+    }
+    bn -= NDIRECT;
 
+    if(bn < NINDIRECT){
+      // Load indirect block, allocating if necessary.
+      if((addr = ip->addrs[NDIRECT]) == 0)
+        ip->addrs[NDIRECT] = addr = balloc(ip->dev);
+      bp = bread(ip->dev, addr);
+      a = (uint*)bp->data;
+      if((addr = a[bn]) == 0){
+        a[bn] = addr = balloc(ip->dev);
+        bwrite(bp);
+      }
+      brelse(bp);
+      return addr;
+    }
+  }
   panic("bmap: out of range");
 }
 
@@ -447,6 +470,7 @@ writei(struct inode *ip, char *src, uint off, uint n)
 
   if(off > ip->size || off + n < off)
     return -1;
+//  if(ip->type == T_SMART && off + n > MAXFILE*BSIZE);//////////////////////
   if(off + n > MAXFILE*BSIZE)
     n = MAXFILE*BSIZE - off;
 
@@ -456,10 +480,7 @@ writei(struct inode *ip, char *src, uint off, uint n)
       n = tot; //return number of bytes written so far
       break;
     }
-    if(ip->type == T_SMART){
-      uint bn = off/BSIZE;
-      //like in bmap, if bn <= 13 return sector num, else rearrange 
-    } 
+
     bp = bread(ip->dev, sector_number);
     m = min(n - tot, BSIZE - off%BSIZE);
     memmove(bp->data + off%BSIZE, src, m);
