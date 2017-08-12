@@ -10,69 +10,76 @@
 int main(int argc, char *argv[]){
   struct stat buf;
   int fd=open("fs.img",O_RDWR);
-  if(fd == 0) {
-      perror("Image not found\n");
-      exit(1);
-  }
+  FILE* image = fopen(argv[1], "rb");
+    if(fd == -1||image == NULL) {
+        fprintf(stderr,"image not found.\n");
+        exit(1);
+    }
   fstat(fd,&buf);
   void *imgptr = (void*)mmap(NULL, buf.st_size, PROT_READ,MAP_PRIVATE,fd,0);
   struct superblock *sb =(struct superblock*)(imgptr+BSIZE);
   struct dinode *dip = (struct dinode*)(imgptr+BSIZE*2);
-//  uchar *bitmap = (uchar*)(imgptr+BSIZE*28);
 
-  int const ninodes = (int)sb->ninodes;
+//  int const ninodes = (int)sb->ninodes;
   int const nblks = (int)sb->nblocks;
   int const size = (int)sb->size;
-  uchar *bitmap = (uchar*)(imgptr+BSIZE*(ninodes)/8+4);
-
-
-  for(int i=0;i<ninodes;i++){
+//  uchar *bitmap = (uchar*)(imgptr+BSIZE*(ninodes)/8+4);
+  uint ninodes = (sb->ninodes + IPB - 1) / IPB;
+  uint nbitmap = (sb->size + BPB - 1) / BPB;
+  uchar bitmap[nbitmap*BSIZE];
+  for(int i=0;i<nbitmap;i++){
+      bitmap[i]=*(uchar*)(imgptr+BSIZE*(ninodes)/8+4+i);
+  }
+  uint data_bound=nbitmap+ninodes+3;
+  for(int i=0;i<(int)sb->ninodes;i++){
     //TODO:
     // Each inode is either unallocated or one
     // of the valid types (T_FILE, T_DIR, T_DEV). ERROR: bad inode.
-    //for loop 200 times to theck
+      printf("%d\n",dip[i].type);
     if(!(dip[i].type == 0 ||dip[i].type == 1 || dip[i].type == 2 || dip[i].type == 3)){
       perror("ERROR: bad inode.\n");
       exit(1);
-    }
-    //try to set up two arrays to record usage of data blks
-
-      //TODO:
-      //Root directory exists, and it is inode number 1. ERROR: root directory does not exist.
-      //check the first dirent of first inode, inum == 1, and  if the name is "."
-      if(i == 1 && dip[i].type != 2){
-          perror("ERROR: root directory does not exist.\n");
-          exit(1);
-      }
-
-
-      //TODO:
-      //For in-use inodes, each address that is used by inode is valid (points to a valid datablock address within the image).
-      //If the direct block is used and is invalid, print ERROR: bad direct address in inode.
-    for(int j=0;j<NDIRECT;j++){
-        if(dip[i].addrs[j]==0){
-        }
-        else if(dip[i].addrs[j]>size||dip[i].addrs[j]<*(uint*)((uchar*)(imgptr+BSIZE*(ninodes)/8+5))) {
-            //larger than size or smaller than the area of non-data blks
-            perror("ERROR: bad direct address in inode.\n");
+    } else {
+        //TODO:
+        //Root directory exists, and it is inode number 1. ERROR: root directory does not exist.
+        //check the first dirent of first inode, inum == 1, and  if the name is "."
+        if(i == 1 && dip[i].type != 1){
+            perror("ERROR: root directory does not exist.\n");
             exit(1);
         }
 
-        else if(dip[i].type == 2){
-            //TODO:
-            //For in-use inodes, direct address in use is only used once. ERROR: direct address used more than once.
+
+        //TODO:
+        //For in-use inodes, each address that is used by inode is valid (points to a valid datablock address within the image).
+        //If the direct block is used and is invalid, print ERROR: bad direct address in inode.
+        for(int j=0;j<NDIRECT;j++){
+            if(dip[i].addrs[j]==0){
+            }
+            else if(dip[i].addrs[j]>size||dip[i].addrs[j]<data_bound) {
+                //larger than size or smaller than the area of non-data blks
+                perror("ERROR: bad direct address in inode.\n");
+                exit(1);
+            }
+
+            else if(dip[i].type == 2){
+                //TODO:
+                //For in-use inodes, direct address in use is only used once. ERROR: direct address used more than once.
 
 
+            }
+        }
+        //TODO:
+        // if the indirect block is in use and is invalid,print ERROR: bad indirect address in inode.
+        if(dip[i].addrs[NINDIRECT]==0){
+        } else if(dip[i].addrs[NINDIRECT]>size||dip[i].addrs[NINDIRECT]<data_bound) {
+            //larger than size or smaller than the area of non-data blks
+            perror("ERROR: bad indirect address in inode.\n");
+            exit(1);
         }
     }
-    //TODO:
-    // if the indirect block is in use and is invalid,print ERROR: bad indirect address in inode.
-    if(dip[i].addrs[NINDIRECT]==0){
-    } else if(dip[i].addrs[NINDIRECT]>size||dip[i].addrs[NINDIRECT]<*(uint*)((uchar*)(imgptr+BSIZE*(ninodes)/8+5))) {
-        //larger than size or smaller than the area of non-data blks
-        perror("ERROR: bad indirect address in inode.\n");
-        exit(1);
-    }
+    //try to set up two arrays to record usage of data blks
+
+
 
   }
 
