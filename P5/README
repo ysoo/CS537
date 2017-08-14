@@ -1,13 +1,20 @@
-CS 537
-Project 5: File Systems
-
 Conrad Chen
-UW ID HERE
+wchen283@wisc.edu
+conradc
+9071560800
 
 Yi Xian Soo
-9073201122
 ysoo@wisc.edu
+ysoo
+9073201122
 
-Part 5a file system checker
+Part a)
+We go though the inodes to check the whether the file image is consistent, for example the type of inode; 
+addresses pointed by the directory entries are valid; the directory inodes are valid, bitmap and the actual
+usage of data blocks are consistent, etc.
 
-Part 5b xv6 small file optimization 
+Part b)
+We implemented the xv6 OS to define a new file type T_SMART and enable the file system calls to initialize 
+such a file type correctly. First, we defined the type in the appropriate header files. After that, we 
+changed sysfile.c to enable it to open files of type T_SMART. After that we changed fs.c to change direct
+pointers to indirect ones. Lastly, enabled deletion of T_SMART files.
