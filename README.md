@@ -2,4 +2,4 @@
 
 Assigned projects for CS 537 Summer 2017. 
 5 projects in total with each having 2 parts: Linux and XV6. 
-3 partnered projects with wenquan.
+project 3, 4, 5 are partnered projects with wenquan.
